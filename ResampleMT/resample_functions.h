@@ -40,6 +40,9 @@
 #include <vector>
 #include <string.h>
 
+#include <array>
+#include <cmath>
+
 #include "./avisynth.h"
 #include "./MatrixClass.h"
 #include "./avs/alignment.h"
@@ -415,5 +418,23 @@ private:
 	double a, b, c;
 	double s; // variable support
 };
+
+class HerrmannFilter : public ResamplingFunction
+	/**
+	  * More user friendly variation of the UD2 filter kernel with 5 coeffs computed from 
+	  * Herrmann filters design with single control param p to control sharpness
+	 **/
+{
+public:
+	HerrmannFilter(double _p = 0.5, double _s = 4.0);
+	double f(double x);
+	double support() { return s; }
+
+private:
+	double sinc(double value);
+	double p; // sharpness control param in nominal range of 0..1 
+	double s; // variable support
+};
+
 
 #endif  // __Reample_Functions_H__

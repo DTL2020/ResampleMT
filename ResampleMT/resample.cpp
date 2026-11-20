@@ -3990,6 +3990,24 @@ AVSValue __cdecl FilteredResizeMT::Create_UserDefined2Resize(AVSValue args, void
 	  preserve_center,placement_name,forced_chroma_placement,env);
 }
 
+AVSValue __cdecl FilteredResizeMT::Create_HerrmannResize(AVSValue args, void*, IScriptEnvironment* env)
+{
+	HerrmannFilter f(args[3].AsFloat(0.5f), args[4].AsFloat(4.0f));
+	const int force = args[9].AsInt(0);
+
+	bool preserve_center = args[10].AsBool(true); // [keep_center] default Avisynth
+	const char* placement_name = args[11].AsString("auto"); // [placement]s
+	const ChromaLocation_e forced_chroma_placement = AVS_CHROMA_UNUSED; // no force, used internally
+
+	const unsigned short Offset_Arg = 12;
+
+	return CreateResize(args[0].AsClip(), args[1].AsInt(), args[2].AsInt(), force, args[Offset_Arg].AsInt(0),
+		args[Offset_Arg + 1].AsBool(true), args[Offset_Arg + 2].AsBool(true), args[Offset_Arg + 3].AsBool(false), args[Offset_Arg + 4].AsBool(false),
+		args[Offset_Arg + 5].AsInt(0), args[Offset_Arg + 6].AsInt(1), false, 0, 0, args[Offset_Arg + 7].AsInt(6), &args[6], &f,
+		preserve_center, placement_name, forced_chroma_placement, env);
+}
+
+
 // Desample functions
 
 AVSValue __cdecl FilteredResizeMT::Create_DeBilinearResize(AVSValue args, void*, IScriptEnvironment* env)
@@ -4255,6 +4273,9 @@ extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScri
 		"[threads]i[logicalCores]b[MaxPhysCore]b[SetAffinity]b[sleep]b[prefetch]i[range]i[ThreadLevel]i",FilteredResizeMT::Create_SincLin2Resize, 0);
 	env->AddFunction("UserDefined2ResizeMT", "c[target_width]i[target_height]i[b]f[c]f[s]f[src_left]f[src_top]f[src_width]f[src_height]f[force]i[keep_center]b[placement]s" \
 		"[threads]i[logicalCores]b[MaxPhysCore]b[SetAffinity]b[sleep]b[prefetch]i[range]i[ThreadLevel]i", FilteredResizeMT::Create_UserDefined2Resize, 0);
+	env->AddFunction("HerrmannResizeMT", "c[target_width]i[target_height]i[p]f[s]f[src_left]f[src_top]f[src_width]f[src_height]f[force]i[keep_center]b[placement]s" \
+		"[threads]i[logicalCores]b[MaxPhysCore]b[SetAffinity]b[sleep]b[prefetch]i[range]i[ThreadLevel]i", FilteredResizeMT::Create_HerrmannResize, 0);
+
 
 // Desample functions
 

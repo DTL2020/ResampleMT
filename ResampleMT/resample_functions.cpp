@@ -404,6 +404,81 @@ double UserDefined2Filter::f(double x)
 }
 
 
+/*********************************
+ *** Herrmann filter ***
+ *********************************/
+// See c0..c5 coeffs computing theory of Herrmann filters in separate file hermann_filter.txt
+
+// Computing of the vector of coeffs c[0..5] for smooth sharpness adjustment by p
+// p = 0.0 -> most smooth (K=2, M=2)
+// p = 1.0 -> most sharp (K=4, M=2)
+// Allows some extrapolation p < 0 and p > 1 without decreasing of the ringing suppression loss about 1/x^5
+std::array<double, 6> getHerrmannCoeffsSmooth(double p) {
+    // Base smooth Herrmann filter (K=2, M=2): c = [1, 9/16, 0, -1/16, 0, 0]
+    constexpr std::array<double, 6> c_soft = {
+        1.0,
+        9.0 / 16.0,
+        0.0,
+        -1.0 / 16.0,
+        0.0,
+        0.0
+    };
+
+    // Base sharp Herrmann filter (K=4, M=2): c = [1, 35/79, -10/79, -5/158, 5/158, -1/158]
+    constexpr std::array<double, 6> c_sharp = {
+        1.0,
+        35.0 / 79.0,
+        -10.0 / 79.0,
+        -5.0 / 158.0,
+        5.0 / 158.0,
+        -1.0 / 158.0
+    };
+
+    std::array<double, 6> c;
+    c[0] = 1.0;
+    for (int k = 1; k < 6; ++k) {
+        c[k] = (1.0 - p) * c_soft[k] + p * c_sharp[k];
+    }
+    return c;
+}
+
+HerrmannFilter::HerrmannFilter(double _p, double _s)
+{
+    p = (double)clamp(_p, -0.5, 1.5); // allow some extrapolation from 0..1 range, it expected to be saved from ringing even after some extrapolation
+    s = (double)clamp(_s, 1.5, 10.0); // filter support for resampler
+
+}
+
+double HerrmannFilter::sinc(double value)
+{
+    value *= M_PI;
+
+    if (fabs(value) > EPS_SINC)
+    {
+        return(sin(value) / value);
+    }
+    else
+    {
+        const double a = -1.0 / 6.0, b = 1.0 / 120.0;
+        value *= value;
+
+        return((value * b + a) * value + 1.0);
+    }
+}
+
+double HerrmannFilter::f(double x)
+{
+    auto c = getHerrmannCoeffsSmooth(p);
+    double sum = sinc(x);
+    for (int k = 1; k < 6; ++k) {
+        if (c[k] != 0.0) {
+            sum += c[k] * (sinc(x + k) + sinc(x - k));
+        }
+    }
+    return sum;
+}
+
+
 void ResamplingProgram::FreeData(void)
 {
 	myalignedfree(pixel_coefficient_float);
@@ -587,6 +662,12 @@ static void checkAndSetOverread(int end_pos, SafeLimit& safelimit, int start_pos
 
 void resize_prepare_coeffs(ResamplingProgram* p, IScriptEnvironment* env, int filter_size_alignment)
 {
+    // possible bug ? causes crash at second call of
+    //resampler_chroma_aligned = GetResampler(true, resampling_program_chroma, env);
+    // resampler_chroma_unaligned = GetResampler(false, resampling_program_chroma, env); <-crash with sizeof(kernel_sizes) = 0
+    if (p->kernel_sizes.empty())
+        return;
+
   p->filter_size_alignment = filter_size_alignment;
   p->safelimit_filter_size_aligned.overread_possible = false;
   p->safelimit_4_pixels.overread_possible = false;
